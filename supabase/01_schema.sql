@@ -18,7 +18,7 @@ alter table public.trips add column if not exists dropoff_point     text;
 
 -- ── BOOKING: richer lifecycle + payment status ──────────────
 alter table public.bookings add column if not exists payment_status text not null default 'unpaid';
-alter table public.bookings add column if not exists qr_token text not null default upper(substr(encode(gen_random_bytes(9),'hex'),1,16));
+alter table public.bookings add column if not exists qr_token text not null default upper(substr(encode(extensions.gen_random_bytes(9),'hex'),1,16));
 -- expand status enum: pending → accepted/rejected → confirmed(paid) → completed/cancelled/refunded
 alter table public.bookings drop constraint if exists bookings_status_check;
 alter table public.bookings add constraint bookings_status_check
@@ -51,7 +51,7 @@ create table if not exists public.payments (
                     check (status in ('initiated','pending','success','failed','refunded','partially_refunded')),
   commission      integer not null default 0,
   refunded_amount integer not null default 0,
-  authorization   jsonb,                       -- tokenised auth for recovery
+  authorization_data jsonb,                       -- tokenised auth for recovery
   paid_at         timestamptz,
   created_at      timestamptz not null default now()
 );
@@ -182,7 +182,7 @@ create table if not exists public.referrals (
 );
 alter table public.profiles add column if not exists referral_code text unique;
 -- give every profile a referral code (once)
-update public.profiles set referral_code = upper(substr(encode(gen_random_bytes(6),'hex'),1,8))
+update public.profiles set referral_code = upper(substr(encode(extensions.gen_random_bytes(6),'hex'),1,8))
   where referral_code is null;
 
 -- ── SAVED PICKUP LOCATIONS (spec: save pickup locations) ────

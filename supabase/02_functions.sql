@@ -86,7 +86,7 @@ end; $$;
 -- ── BOOKING: create as PENDING (driver must accept) ─────────
 -- Overrides the instant-confirm book_trip with an accept/reject flow.
 create or replace function public.request_booking(p_trip_id uuid, p_seats integer, p_promo text default null)
-returns json language plpgsql security definer set search_path = public as $$
+returns json language plpgsql security definer set search_path = public, extensions as $$
 declare v_trip public.trips; v_booking public.bookings; v_ref text; v_amount integer; v_discount integer := 0; v_promo public.promo_codes;
 begin
   if auth.uid() is null then return json_build_object('error','Not authenticated'); end if;
@@ -108,8 +108,7 @@ begin
     end if;
   end if;
 
-  v_ref := 'NR-' || upper(substr(encode(gen_random_bytes(6),'hex'),1,8));
-  insert into public.bookings(reference_placeholder_ignore) values (default) on conflict do nothing; -- no-op guard
+  v_ref := 'NR-' || upper(substr(encode(extensions.gen_random_bytes(6),'hex'),1,8));
   insert into public.bookings(trip_id, passenger_id, seats_booked, total_amount, discount, promo_code_id, status, payment_status, booking_reference)
   values (p_trip_id, auth.uid(), p_seats, v_amount - v_discount, v_discount, (v_promo).id, 'pending', 'unpaid', v_ref)
   returning * into v_booking;
@@ -126,7 +125,7 @@ begin
                            'amount',v_booking.total_amount,'discount',v_discount,'status','pending');
 exception when undefined_column then
   -- the no-op guard column doesn't exist (expected) — retry clean insert
-  v_ref := 'NR-' || upper(substr(encode(gen_random_bytes(6),'hex'),1,8));
+  v_ref := 'NR-' || upper(substr(encode(extensions.gen_random_bytes(6),'hex'),1,8));
   insert into public.bookings(trip_id, passenger_id, seats_booked, total_amount, discount, promo_code_id, status, payment_status, booking_reference)
   values (p_trip_id, auth.uid(), p_seats, v_amount - v_discount, v_discount, (v_promo).id, 'pending', 'unpaid', v_ref)
   returning * into v_booking;
